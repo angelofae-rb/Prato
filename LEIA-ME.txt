@@ -4,8 +4,9 @@ O QUE É
 - App web que se instala no celular como um app comum, abre sem internet e guarda
   os dados no próprio aparelho (IndexedDB, com cópia de reserva no localStorage).
 - Tabela com 105 alimentos brasileiros (valores aproximados da TACO) e 17 exercícios.
-- Aba IA opcional: precisa de uma chave da API da Anthropic (console.anthropic.com),
-  que fica salva só no aparelho. Cada análise é cobrada na sua conta da API.
+- Aba IA opcional: use uma chave GRATUITA do Google Gemini (aistudio.google.com/apikey,
+  começa com AIza) ou uma chave paga da Anthropic (platform.claude.com, começa com sk-ant-).
+  A chave fica salva só no aparelho.
 
 COMO PUBLICAR (precisa estar em HTTPS para instalar)
 Opção 1 — Netlify Drop (mais rápido, grátis):
@@ -29,5 +30,5 @@ SEUS DADOS
 - "Restaurar backup" carrega esse arquivo em outro aparelho.
 
 ATUALIZAR O APP
-- Ao mudar algum arquivo, troque CACHE = 'prato-v1' para 'prato-v2' no sw.js
+- Ao mudar algum arquivo, aumente o número em CACHE = 'prato-v2' no sw.js
   e publique de novo. Os dados do usuário não são apagados.

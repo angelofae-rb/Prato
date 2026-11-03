@@ -190,7 +190,7 @@ $('addManual').onclick=()=>{
 // IA (opcional, com chave própria da API da Anthropic)
 function aiStateText(){
   const has=!!state.perfil.apiKey;
-  $('aiState').textContent=has?(navigator.onLine?'Descreva a refeição ou anexe uma foto. A IA separa os itens e calcula calorias e macros.':'Sem internet agora: a IA só funciona online. Use a busca de alimentos.'):'Para usar a IA, salve uma chave da API da Anthropic em Ajustes (ícone de engrenagem). Sem ela, use a busca de alimentos ou a aba Manual.';
+  $('aiState').textContent=has?(navigator.onLine?'Descreva a refeição ou anexe uma foto. A IA separa os itens e calcula calorias e macros.':'Sem internet agora: a IA só funciona online. Use a busca de alimentos.'):'Para usar a IA, salve em Ajustes (engrenagem) uma chave gratuita do Google Gemini ou uma da Anthropic. Sem chave, use a busca de alimentos ou a aba Manual.';
   $('aiGo').disabled=!has; $('aiPhotoBtn').disabled=!has;
 }
 $('aiPhotoBtn').onclick=()=>$('aiPhoto').click();
@@ -205,17 +205,42 @@ $('aiPhotoDel').onclick=()=>{aiBlob=null;$('aiPhotoPrev').classList.remove('show
 const AI_PROMPT=`Você é um nutricionista brasileiro. Estime calorias e macronutrientes do que a pessoa comeu, a partir do texto e/ou da foto.
 Separe cada alimento em um item, com porções caseiras brasileiras e valores da tabela TACO quando possível. Se a quantidade não foi dita, assuma uma porção típica de adulto e diga qual.
 Responda SOMENTE com JSON válido, sem markdown: {"itens":[{"nome":"","porcao":"","kcal":0,"proteina_g":0,"carbo_g":0,"gordura_g":0}],"comentario":"frase curta em português"}`;
+
+// Detecta o provedor pela chave: "AIza…" = Google Gemini (plano gratuito), "sk-ant-…" = Anthropic.
+function provider(key){return /^AIza/.test(key)?'gemini':/^sk-ant-/.test(key)?'anthropic':null}
+const GEMINI_MODELS=['gemini-3.8-flash','gemini-3.5-flash-lite','gemini-3.1-flash-lite'];
+function httpError(status,who){
+  if(status===400||status===401||status===403) return new Error(`Chave ${who} inválida ou sem permissão. Confira em Ajustes.`);
+  if(status===429) return new Error(who==='do Gemini'?'Limite gratuito do Gemini atingido por agora. Espere um minuto (ou até amanhã) e tente de novo.':'Muitas análises seguidas. Espere um pouco.');
+  return new Error('A IA respondeu com erro '+status+'.');
+}
+async function askAI(prompt, dataUrl){
+  const key=state.perfil.apiKey, img=dataUrl?dataUrl.split(',')[1]:null;
+  if(provider(key)==='gemini'){
+    const parts=[{text:prompt}]; if(img) parts.unshift({inline_data:{mime_type:'image/jpeg',data:img}});
+    let last=null;
+    for(const m of GEMINI_MODELS){
+      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,{method:'POST',
+        headers:{'content-type':'application/json','x-goog-api-key':key},
+        body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:{responseMimeType:'application/json',temperature:0.2}})});
+      if(r.ok){const j=await r.json();return (j.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('')}
+      last=r.status; if(r.status!==404&&r.status!==429&&r.status!==503) break; // tenta o próximo modelo gratuito
+    }
+    throw httpError(last,'do Gemini');
+  }
+  const content=[]; if(img) content.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:img}});
+  content.push({type:'text',text:prompt});
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-haiku-5-5',max_tokens:1200,messages:[{role:'user',content}]})});
+  if(!r.ok) throw httpError(r.status,'da Anthropic');
+  const j=await r.json(); return (j.content||[]).map(c=>c.text||'').join('');
+}
 $('aiGo').onclick=async()=>{
   const text=$('aiText').value.trim();if(!text&&!aiBlob){toast('Descreva a refeição ou anexe uma foto.');return}
-  const content=[];
-  if(aiBlob) content.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:aiBlob.split(',')[1]}});
-  content.push({type:'text',text:`${AI_PROMPT}\n\nRegistro: ${text||'(veja a foto)'}`});
+  const prompt=`${AI_PROMPT}\n\nRegistro: ${text||'(veja a foto)'}`;
   $('aiGo').disabled=true;$('aiGo').textContent='Calculando…';$('aiOut').innerHTML='';
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':state.perfil.apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-5-5',max_tokens:1200,messages:[{role:'user',content}]})});
-    if(!r.ok){throw new Error(r.status===401?'Chave da API inválida. Confira em Ajustes.':r.status===429?'Muitas análises seguidas. Espere um pouco.':'A IA respondeu com erro '+r.status+'.')}
-    const j=await r.json();const txt=(j.content||[]).map(c=>c.text||'').join('');
+    const txt=await askAI(prompt, aiBlob);
     const a=txt.indexOf('{'),b=txt.lastIndexOf('}');const o=JSON.parse(txt.slice(a,b+1));
     const num=v=>Math.max(0,Math.round((+v||0)*10)/10);
     aiResult=(o.itens||[]).slice(0,20).map(i=>({nome:String(i.nome||'Item').slice(0,80),porcao:String(i.porcao||'').slice(0,60),kcal:Math.round(num(i.kcal)),p:num(i.proteina_g),c:num(i.carbo_g),g:num(i.gordura_g)}));
@@ -237,7 +262,7 @@ function renderWeights(){
 $('weightForm').addEventListener('submit',e=>{e.preventDefault();const kg=Math.round((+$('wKg').value||0)*10)/10;if(!kg)return;const t=todayKey();
   state.perfil.pesos=(state.perfil.pesos||[]).filter(x=>x.data!==t).concat({data:t,kg}).sort((a,b)=>a.data.localeCompare(b.data)).slice(-365);
   $('wKg').value='';renderWeights();save();toast('Peso registrado.')});
-$('saveKey').onclick=()=>{state.perfil.apiKey=$('apiKey').value.trim();save();toast(state.perfil.apiKey?'Chave salva neste aparelho.':'Chave removida.')};
+$('saveKey').onclick=()=>{const k=$('apiKey').value.trim();if(k&&!provider(k)){toast('Chave não reconhecida. A do Gemini começa com AIza e a da Anthropic com sk-ant-.');return}state.perfil.apiKey=k;save();toast(!k?'Chave removida.':provider(k)==='gemini'?'Chave do Gemini salva neste aparelho.':'Chave da Anthropic salva neste aparelho.')};
 
 // backup
 $('exportBtn').onclick=()=>{
