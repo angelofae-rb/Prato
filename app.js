@@ -1,5 +1,7 @@
 (() => {
 'use strict';
+// Atualize a cada publicação (e o CACHE no sw.js com o mesmo número).
+const APP_VERSION='1.3', APP_BUILD='03/11 10:20';
 const $ = id => document.getElementById(id);
 const MEALS = [['cafe','Café da manhã'],['almoco','Almoço'],['lanche','Lanche'],['jantar','Jantar'],['exercicio','Exercícios']];
 const DEFAULT_PERFIL = {kcal:2200, prot:130, carb:250, fat:70, agua:2000, pesos:[], apiKey:''};
@@ -296,5 +298,7 @@ let lastToday=todayKey();
 setInterval(()=>{const t=todayKey();if(t!==lastToday){if(state.cur===lastToday)state.cur=t;lastToday=t;render()}},60000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flush()});
 
+$('appVer').textContent=`v${APP_VERSION} · ${APP_BUILD}`;
+$('appVer').title=`Versão ${APP_VERSION}, publicada em ${APP_BUILD}`;
 load().then(render);
 })();

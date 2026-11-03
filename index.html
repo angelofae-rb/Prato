@@ -33,8 +33,9 @@ button{cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .app{max-width:540px;margin:0 auto;padding:0 16px calc(110px + env(safe-area-inset-bottom))}
 header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(12px + env(safe-area-inset-top)) 0 8px;display:flex;align-items:center;gap:8px}
-.brand{font-weight:800;font-size:22px;letter-spacing:-.03em;flex:1}
+.brand{font-weight:800;font-size:22px;letter-spacing:-.03em;flex:1;white-space:nowrap;min-width:0}
 .brand span{color:var(--accent)}
+.ver{white-space:nowrap;font-size:11px;font-weight:600;letter-spacing:0;color:var(--muted);vertical-align:middle;font-variant-numeric:tabular-nums}
 .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 11px;font-weight:700;font-size:13px;border:0}
 .streak{background:var(--accent-soft);color:var(--accent)}
 .install{background:var(--accent);color:var(--accent-ink)}
@@ -128,7 +129,7 @@ h3{margin:0;font-size:16px}
 <body>
 <div class="app">
   <header>
-    <div class="brand">Prato<span>.</span></div>
+    <div class="brand">Prato<span>.</span> <small class="ver" id="appVer"></small></div>
     <button class="pill install" id="installBtn" hidden>Instalar app</button>
     <span class="pill streak" id="streak" title="Dias seguidos com registro">0 dias</span>
     <button class="iconbtn" id="openSettings" aria-label="Metas, peso e dados">
