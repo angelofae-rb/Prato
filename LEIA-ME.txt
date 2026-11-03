@@ -1,0 +1,33 @@
+PRATO — diário alimentar instalável (PWA)
+
+O QUE É
+- App web que se instala no celular como um app comum, abre sem internet e guarda
+  os dados no próprio aparelho (IndexedDB, com cópia de reserva no localStorage).
+- Tabela com 105 alimentos brasileiros (valores aproximados da TACO) e 17 exercícios.
+- Aba IA opcional: precisa de uma chave da API da Anthropic (console.anthropic.com),
+  que fica salva só no aparelho. Cada análise é cobrada na sua conta da API.
+
+COMO PUBLICAR (precisa estar em HTTPS para instalar)
+Opção 1 — Netlify Drop (mais rápido, grátis):
+  1. Abra https://app.netlify.com/drop no computador.
+  2. Arraste a pasta "prato" inteira (descompactada) para a página.
+  3. Abra o link gerado no Chrome do celular.
+
+Opção 2 — GitHub Pages:
+  1. Crie um repositório (ex.: prato) e envie todos os arquivos desta pasta para a raiz.
+  2. Settings > Pages > Branch: main / (root) > Save.
+  3. Abra https://SEU-USUARIO.github.io/prato no celular.
+
+COMO INSTALAR NO CELULAR
+- Android (Chrome): toque em "Instalar app" no topo, ou menu ⋮ > Instalar app.
+- iPhone (Safari): Compartilhar > Adicionar à Tela de Início.
+
+SEUS DADOS
+- Ficam no aparelho e não vão para nenhum servidor.
+- Ajustes > "Baixar backup" gera um arquivo .json. Faça isso de vez em quando:
+  desinstalar o app ou limpar os dados do navegador apaga os registros.
+- "Restaurar backup" carrega esse arquivo em outro aparelho.
+
+ATUALIZAR O APP
+- Ao mudar algum arquivo, troque CACHE = 'prato-v1' para 'prato-v2' no sw.js
+  e publique de novo. Os dados do usuário não são apagados.

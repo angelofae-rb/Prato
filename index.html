@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prato — diário alimentar</title>
+<meta name="theme-color" content="#1f6b4a">
+<meta name="description" content="Diário de calorias, macros, água e peso que funciona offline.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Prato">
+<style>
+/* Coluna única estilo app: dia, resumo, água, refeições; botão + abre a folha de registro */
+:root{
+  --bg:#eef2ec; --surface:#fff; --surface2:#f4f7f2; --ink:#17231c; --muted:#5f6e64; --line:#dbe3d8;
+  --accent:#1f6b4a; --accent-ink:#fff; --accent-soft:#dcefe4;
+  --kcal:#d9482b; --prot:#3567c9; --carb:#b98208; --fat:#b4467a; --water:#2a8fb8;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --r:14px; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0f1512; --surface:#18211c; --surface2:#1f2a24; --ink:#e7eee9; --muted:#9aaba0; --line:#2b3831;
+  --accent:#5cc290; --accent-ink:#0b1a12; --accent-soft:#1f3a2d;
+  --kcal:#ff7a5c; --prot:#7aa2ff; --carb:#f0bd45; --fat:#e07fb0; --water:#5cc4ea; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{max-width:540px;margin:0 auto;padding:0 16px calc(110px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(12px + env(safe-area-inset-top)) 0 8px;display:flex;align-items:center;gap:8px}
+.brand{font-weight:800;font-size:22px;letter-spacing:-.03em;flex:1}
+.brand span{color:var(--accent)}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 11px;font-weight:700;font-size:13px;border:0}
+.streak{background:var(--accent-soft);color:var(--accent)}
+.install{background:var(--accent);color:var(--accent-ink)}
+.iconbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;width:38px;height:38px;display:grid;place-items:center;flex:none;padding:0}
+.iconbtn:disabled{opacity:.35;cursor:default}
+.iconbtn svg{width:18px;height:18px}
+.daynav{display:flex;align-items:center;gap:8px;margin:4px 0 12px}
+.daylabel{flex:1;text-align:center}
+.daylabel b{display:block;font-size:18px;text-transform:capitalize}
+.daylabel small{color:var(--muted)}
+main{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.summary{display:grid;grid-template-columns:128px 1fr;gap:16px;align-items:center}
+.ring{position:relative;width:128px;height:128px}
+.ring svg{width:128px;height:128px;transform:rotate(-90deg)}
+.ring .c{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.ring .big{font-weight:800;font-size:27px;line-height:1;font-variant-numeric:tabular-nums}
+.ring .lbl{color:var(--muted);font-size:12px;margin-top:4px}
+.kline{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.kline b{color:var(--ink)}
+.macros{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.macro .top{display:flex;justify-content:space-between;font-size:13px;font-variant-numeric:tabular-nums}
+.macro .top span:first-child{font-weight:600}
+.bar{height:7px;border-radius:99px;background:var(--surface2);overflow:hidden;margin-top:3px}
+.bar i{display:block;height:100%;border-radius:99px;transition:width .35s}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:0}
+h3{margin:0;font-size:16px}
+.water{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.water .meta{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;flex:1}
+.cups{display:flex;gap:6px;flex-wrap:wrap;width:100%}
+.cup{width:32px;height:38px;border:1.5px solid var(--water);border-radius:4px 4px 9px 9px;background:transparent;padding:0;position:relative;overflow:hidden}
+.cup.on{background:var(--water)}
+.meal{padding:12px 16px}
+.meal .hd{display:flex;align-items:center;gap:8px}
+.meal .hd h3{flex:1}
+.meal .hd .tot{color:var(--muted);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.addlink{background:var(--accent-soft);color:var(--accent);border:0;border-radius:999px;width:30px;height:30px;font-size:20px;line-height:1;display:grid;place-items:center;padding:0}
+.items{margin-top:6px}
+.it{display:grid;grid-template-columns:1fr auto auto;gap:0 10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.it .n{font-weight:600}
+.it .p{color:var(--muted);font-size:13px}
+.it .k{font-weight:700;font-variant-numeric:tabular-nums}
+.it .k.ex{color:var(--accent)}
+.del{background:none;border:0;color:var(--muted);width:30px;height:30px;border-radius:8px;font-size:18px;padding:0}
+.del:hover{color:var(--kcal);background:var(--surface2)}
+.emptymeal{color:var(--muted);font-size:14px;margin-top:4px}
+.fab{position:fixed;right:max(16px,calc(50% - 254px));bottom:calc(18px + env(safe-area-inset-bottom));z-index:6;background:var(--accent);color:var(--accent-ink);border:0;border-radius:999px;padding:15px 22px;font-weight:800;font-size:16px;box-shadow:0 6px 18px rgba(20,60,40,.28);display:flex;align-items:center;gap:8px}
+.fab svg{width:20px;height:20px}
+/* folhas */
+.sheet{position:fixed;inset:0;z-index:20;display:none;background:rgba(10,20,15,.45)}
+.sheet.show{display:flex;align-items:flex-end;justify-content:center}
+.panel{background:var(--surface);width:100%;max-width:540px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;padding:18px 16px calc(24px + env(safe-area-inset-bottom))}
+.panel h2{margin:0 0 12px;font-size:20px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tabs{display:flex;gap:6px;background:var(--surface2);padding:4px;border-radius:12px;margin-bottom:14px}
+.tabs button{flex:1;border:0;background:transparent;border-radius:9px;padding:8px 4px;font-weight:600;font-size:14px;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:13px;font-weight:600}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);background:var(--surface2);border-radius:10px;padding:10px;font-variant-numeric:tabular-nums}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stack{display:flex;flex-direction:column;gap:10px}
+.results{display:flex;flex-direction:column;max-height:38vh;overflow:auto;border:1px solid var(--line);border-radius:12px}
+.res{display:flex;justify-content:space-between;gap:10px;text-align:left;background:var(--surface);border:0;border-bottom:1px solid var(--line);padding:10px 12px}
+.res:last-child{border-bottom:0}
+.res small{color:var(--muted)}
+.res.sel{background:var(--accent-soft)}
+.preview{background:var(--surface2);border-radius:12px;padding:10px 12px;font-size:14px;font-variant-numeric:tabular-nums;display:flex;flex-wrap:wrap;gap:4px 14px}
+.preview b{font-size:16px}
+.btn{border:0;border-radius:12px;padding:12px 16px;font-weight:800;background:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.ghost{background:var(--surface2);color:var(--ink);border:1px solid var(--line)}
+.btn.danger{background:transparent;color:var(--kcal);border:1px solid var(--kcal)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>*{flex:1}
+.note{font-size:13px;color:var(--muted);margin:0}
+.panel h3{margin:20px 0 8px}
+.weights{display:flex;flex-direction:column;font-size:14px;font-variant-numeric:tabular-nums}
+.weights div{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}
+.weights .d{color:var(--muted)}
+.up{color:var(--kcal)}.down{color:var(--accent)}
+.photo-prev{display:none;align-items:center;gap:8px}
+.photo-prev.show{display:flex}
+.photo-prev img{width:52px;height:52px;object-fit:cover;border-radius:8px}
+.linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;padding:4px;font-size:13px}
+.toast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:10px;font-size:14px;z-index:40;display:none;max-width:90%}
+.toast.show{display:block}
+@media (prefers-reduced-motion: reduce){.bar i{transition:none}}
+@media (max-width:400px){.summary{grid-template-columns:1fr;justify-items:center}.summary>div:last-child{width:100%}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">Prato<span>.</span></div>
+    <button class="pill install" id="installBtn" hidden>Instalar app</button>
+    <span class="pill streak" id="streak" title="Dias seguidos com registro">0 dias</span>
+    <button class="iconbtn" id="openSettings" aria-label="Metas, peso e dados">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+
+  <div class="daynav">
+    <button class="iconbtn" id="prevDay" aria-label="Dia anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div class="daylabel"><b id="dayTitle">Hoje</b><small id="daySub"></small></div>
+    <button class="iconbtn" id="nextDay" aria-label="Próximo dia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg></button>
+  </div>
+
+  <main>
+    <section class="card summary" aria-label="Resumo do dia">
+      <div class="ring">
+        <svg viewBox="0 0 128 128"><circle cx="64" cy="64" r="54" stroke="var(--surface2)" stroke-width="12" fill="none"/><circle id="ringArc" cx="64" cy="64" r="54" stroke="var(--kcal)" stroke-width="12" fill="none" stroke-linecap="round" stroke-dasharray="339.3" stroke-dashoffset="339.3"/></svg>
+        <div class="c"><div class="big" id="kcalLeft">0</div><div class="lbl" id="kcalLeftLbl">kcal restantes</div></div>
+      </div>
+      <div>
+        <div class="kline"><span>Meta</span><b id="kGoal">0</b></div>
+        <div class="kline"><span>Comido</span><b id="kEaten">0</b></div>
+        <div class="kline"><span>Exercício</span><b id="kBurn">0</b></div>
+        <div class="macros">
+          <div class="macro"><div class="top"><span><i class="dot" style="background:var(--prot)"></i>Proteína</span><span id="pTxt"></span></div><div class="bar"><i id="pBar" style="background:var(--prot);width:0"></i></div></div>
+          <div class="macro"><div class="top"><span><i class="dot" style="background:var(--carb)"></i>Carboidrato</span><span id="cTxt"></span></div><div class="bar"><i id="cBar" style="background:var(--carb);width:0"></i></div></div>
+          <div class="macro"><div class="top"><span><i class="dot" style="background:var(--fat)"></i>Gordura</span><span id="gTxt"></span></div><div class="bar"><i id="gBar" style="background:var(--fat);width:0"></i></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card water" aria-label="Água">
+      <h3>Água</h3><span class="meta" id="waterTxt"></span>
+      <div class="cups" id="cups"></div>
+    </section>
+
+    <div id="meals" class="stack"></div>
+  </main>
+</div>
+
+<button class="fab" id="fab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14"/></svg>Registrar</button>
+
+<!-- Folha de registro -->
+<div class="sheet" id="addSheet" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+  <div class="panel">
+    <h2><span id="addTitle">Registrar</span><button class="iconbtn" data-close aria-label="Fechar">✕</button></h2>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="food" aria-selected="true">Alimento</button>
+      <button role="tab" data-tab="ex" aria-selected="false">Exercício</button>
+      <button role="tab" data-tab="manual" aria-selected="false">Manual</button>
+      <button role="tab" data-tab="ai" aria-selected="false">IA</button>
+    </div>
+
+    <div class="field" id="mealField" style="margin-bottom:12px">
+      <label for="mealSel">Refeição</label>
+      <select id="mealSel"></select>
+    </div>
+
+    <div data-pane="food" class="stack">
+      <div class="field"><label for="q">Buscar alimento</label><input id="q" type="search" placeholder="arroz, feijão, frango…" autocomplete="off"></div>
+      <div class="results" id="results"></div>
+      <div id="foodDetail" class="stack" hidden>
+        <div class="grid2">
+          <div class="field"><label for="qty">Quantidade</label><input id="qty" type="number" min="0.25" step="0.5" value="1" inputmode="decimal"></div>
+          <div class="field"><label for="portion">Medida</label><select id="portion"></select></div>
+        </div>
+        <div class="preview" id="foodPrev"></div>
+        <button class="btn" id="addFood">Adicionar</button>
+      </div>
+    </div>
+
+    <div data-pane="ex" class="stack" hidden>
+      <div class="field"><label for="exSel">Atividade</label><select id="exSel"></select></div>
+      <div class="grid2">
+        <div class="field"><label for="exMin">Minutos</label><input id="exMin" type="number" min="1" max="600" value="30" inputmode="numeric"></div>
+        <div class="field"><label for="exKg">Seu peso (kg)</label><input id="exKg" type="number" min="30" max="300" step="0.1" inputmode="decimal"></div>
+      </div>
+      <div class="preview" id="exPrev"></div>
+      <button class="btn" id="addEx">Adicionar exercício</button>
+    </div>
+
+    <div data-pane="manual" class="stack" hidden>
+      <div class="field"><label for="mName">Nome</label><input id="mName" placeholder="Ex.: marmita da padaria"></div>
+      <div class="grid2">
+        <div class="field"><label for="mKcal">Calorias (kcal)</label><input id="mKcal" type="number" min="0" inputmode="numeric"></div>
+        <div class="field"><label for="mP">Proteína (g)</label><input id="mP" type="number" min="0" inputmode="decimal"></div>
+        <div class="field"><label for="mC">Carboidrato (g)</label><input id="mC" type="number" min="0" inputmode="decimal"></div>
+        <div class="field"><label for="mG">Gordura (g)</label><input id="mG" type="number" min="0" inputmode="decimal"></div>
+      </div>
+      <button class="btn" id="addManual">Adicionar</button>
+    </div>
+
+    <div data-pane="ai" class="stack" hidden>
+      <p class="note" id="aiState"></p>
+      <div class="field"><label for="aiText">O que você comeu?</label><textarea id="aiText" rows="3" placeholder="Prato feito com arroz, feijão, bife acebolado e salada"></textarea></div>
+      <input type="file" id="aiPhoto" accept="image/*" hidden>
+      <div class="row"><button class="btn ghost" id="aiPhotoBtn">Anexar foto</button><button class="btn" id="aiGo">Calcular</button></div>
+      <div class="photo-prev" id="aiPhotoPrev"><img id="aiPhotoImg" alt="Foto anexada"><button class="linkbtn" id="aiPhotoDel">Remover foto</button></div>
+      <div id="aiOut" class="stack"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Folha de ajustes -->
+<div class="sheet" id="setSheet" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+  <div class="panel">
+    <h2><span id="setTitle">Metas, peso e dados</span><button class="iconbtn" data-close aria-label="Fechar">✕</button></h2>
+    <form id="goalsForm" class="stack">
+      <div class="grid2">
+        <div class="field"><label for="gKcal">Calorias (kcal)</label><input id="gKcal" type="number" min="800" max="6000" step="10"></div>
+        <div class="field"><label for="gWater">Água (ml)</label><input id="gWater" type="number" min="500" max="6000" step="250"></div>
+        <div class="field"><label for="gProt">Proteína (g)</label><input id="gProt" type="number" min="0" max="500"></div>
+        <div class="field"><label for="gCarb">Carboidrato (g)</label><input id="gCarb" type="number" min="0" max="900"></div>
+        <div class="field"><label for="gFat">Gordura (g)</label><input id="gFat" type="number" min="0" max="400"></div>
+      </div>
+      <button class="btn" type="submit">Salvar metas</button>
+    </form>
+
+    <h3>Peso</h3>
+    <form id="weightForm" class="grid2" style="align-items:end">
+      <div class="field"><label for="wKg">Peso de hoje (kg)</label><input id="wKg" type="number" step="0.1" min="30" max="300" inputmode="decimal"></div>
+      <button class="btn" type="submit">Registrar peso</button>
+    </form>
+    <div class="weights" id="weights" style="margin-top:8px"></div>
+
+    <h3>IA (opcional)</h3>
+    <p class="note">Com uma chave da API da Anthropic, a aba IA calcula refeições descritas em texto ou por foto. A chave fica só neste aparelho e cada análise é cobrada na sua conta da API.</p>
+    <div class="field" style="margin-top:8px"><label for="apiKey">Chave da API</label><input id="apiKey" type="password" placeholder="sk-ant-…" autocomplete="off"></div>
+    <div class="row" style="margin-top:8px"><button class="btn ghost" id="saveKey">Salvar chave</button></div>
+
+    <h3>Seus dados</h3>
+    <p class="note" id="storageInfo">Os registros ficam salvos neste aparelho.</p>
+    <div class="row" style="margin-top:8px">
+      <button class="btn ghost" id="exportBtn">Baixar backup</button>
+      <button class="btn ghost" id="importBtn">Restaurar backup</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+    <div class="row" style="margin-top:8px"><button class="btn danger" id="wipeBtn">Apagar todos os dados</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+<script src="foods.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
