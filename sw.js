@@ -1,5 +1,5 @@
 // Guarda o app no aparelho para abrir sem internet. Mude a versão a cada atualização.
-const CACHE = 'prato-v1.3';
+const CACHE = 'prato-v1.4';
 const FILES = ['./', 'index.html', 'app.js', 'foods.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'];
 

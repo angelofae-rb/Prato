@@ -1,7 +1,7 @@
 (() => {
 'use strict';
 // Atualize a cada publicação (e o CACHE no sw.js com o mesmo número).
-const APP_VERSION='1.3', APP_BUILD='03/11 10:20';
+const APP_VERSION='1.4', APP_BUILD='03/11 12:25';
 const $ = id => document.getElementById(id);
 const MEALS = [['cafe','Café da manhã'],['almoco','Almoço'],['lanche','Lanche'],['jantar','Jantar'],['exercicio','Exercícios']];
 const DEFAULT_PERFIL = {kcal:2200, prot:130, carb:250, fat:70, agua:2000, pesos:[], apiKey:''};
@@ -33,19 +33,25 @@ function openIDB(){return new Promise(res=>{
 })}
 function idbGet(){return new Promise(res=>{try{const r=idb.transaction(STORE).objectStore(STORE).get(KEY);r.onsuccess=()=>res(r.result||null);r.onerror=()=>res(null)}catch(e){res(null)}})}
 function idbPut(v){return new Promise(res=>{try{const t=idb.transaction(STORE,'readwrite');t.objectStore(STORE).put(v,KEY);t.oncomplete=()=>res(true);t.onerror=()=>res(false)}catch(e){res(false)}})}
-let saveTimer=null;
-function save(){clearTimeout(saveTimer);saveTimer=setTimeout(flush,150)}
-async function flush(){
+let lastSaved=0;
+// Grava NA HORA: localStorage é síncrono (sobrevive ao app ser fechado logo em seguida)
+// e o IndexedDB recebe a mesma cópia em seguida, como segunda garantia.
+function save(){
   const data={v:1, perfil:state.perfil, days:state.days, savedAt:Date.now()};
   let ok=false;
-  if(idb) ok=await idbPut(data);
   try{localStorage.setItem(LSKEY,JSON.stringify(data));ok=true}catch(e){}
-  if(!ok) toast('Não foi possível salvar neste aparelho.');
+  if(idb) idbPut(data).then(r=>{if(!r&&!ok)toast('Não foi possível salvar neste aparelho.')});
+  else if(!ok) toast('Não foi possível salvar neste aparelho.');
+  if(ok) lastSaved=data.savedAt;
+  return ok;
 }
+async function flush(){save(); return true}
 async function load(){
   idb=await openIDB();
-  let data=idb?await idbGet():null;
-  if(!data){try{data=JSON.parse(localStorage.getItem(LSKEY)||'null')}catch(e){}}
+  const fromIdb=idb?await idbGet():null;
+  let fromLs=null; try{fromLs=JSON.parse(localStorage.getItem(LSKEY)||'null')}catch(e){}
+  const data=[fromIdb,fromLs].filter(Boolean).sort((x,y)=>(y.savedAt||0)-(x.savedAt||0))[0]||null;
+  if(data) lastSaved=data.savedAt||0;
   if(data){state.perfil={...DEFAULT_PERFIL,...(data.perfil||{})};state.days=data.days||{}}
   // pede ao navegador para não apagar os dados quando faltar espaço
   if(navigator.storage&&navigator.storage.persist){try{const p=await navigator.storage.persisted()||await navigator.storage.persist();
@@ -255,7 +261,7 @@ $('aiGo').onclick=async()=>{
 };
 
 // ---------- ajustes ----------
-$('openSettings').onclick=()=>{const P=state.perfil;$('gKcal').value=P.kcal;$('gWater').value=P.agua;$('gProt').value=P.prot;$('gCarb').value=P.carb;$('gFat').value=P.fat;$('apiKey').value=P.apiKey||'';renderWeights();resetWipe();openSheet('setSheet')};
+$('openSettings').onclick=()=>{const P=state.perfil;$('gKcal').value=P.kcal;$('gWater').value=P.agua;$('gProt').value=P.prot;$('gCarb').value=P.carb;$('gFat').value=P.fat;$('apiKey').value=P.apiKey||'';renderWeights();resetWipe();showSaved();openSheet('setSheet')};
 $('goalsForm').addEventListener('submit',e=>{e.preventDefault();const v=id=>Math.max(0,Math.round(+$(id).value||0));Object.assign(state.perfil,{kcal:v('gKcal')||2200,agua:v('gWater')||2000,prot:v('gProt'),carb:v('gCarb'),fat:v('gFat')});render();save();toast('Metas salvas.')});
 function renderWeights(){
   const w=[...(state.perfil.pesos||[])].reverse().slice(0,8);
@@ -266,6 +272,7 @@ $('weightForm').addEventListener('submit',e=>{e.preventDefault();const kg=Math.r
   $('wKg').value='';renderWeights();save();toast('Peso registrado.')});
 $('saveKey').onclick=()=>{const k=$('apiKey').value.trim();if(k&&!provider(k)){toast('Chave não reconhecida. A do Gemini começa com AIza e a da Anthropic com sk-ant-.');return}state.perfil.apiKey=k;save();toast(!k?'Chave removida.':provider(k)==='gemini'?'Chave do Gemini salva neste aparelho.':'Chave da Anthropic salva neste aparelho.')};
 
+function showSaved(){const el=$('savedInfo');if(el)el.textContent=lastSaved?`Último salvamento: ${new Date(lastSaved).toLocaleString('pt-BR')}`:'Nada salvo ainda.'}
 // backup
 $('exportBtn').onclick=()=>{
   const data={app:'prato',v:1,exportadoEm:new Date().toISOString(),perfil:{...state.perfil,apiKey:''},days:state.days};
@@ -296,7 +303,8 @@ if('serviceWorker' in navigator && location.protocol!=='file:'){navigator.servic
 // troca de dia à meia-noite com o app aberto
 let lastToday=todayKey();
 setInterval(()=>{const t=todayKey();if(t!==lastToday){if(state.cur===lastToday)state.cur=t;lastToday=t;render()}},60000);
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flush()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save()});
+window.addEventListener('pagehide',save);
 
 $('appVer').textContent=`v${APP_VERSION} · ${APP_BUILD}`;
 $('appVer').title=`Versão ${APP_VERSION}, publicada em ${APP_BUILD}`;
